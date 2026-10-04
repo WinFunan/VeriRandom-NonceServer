@@ -42,6 +42,11 @@
 build/
 Build/
 build-*/
+out/
+
+# Runtime data (commitment logs / signing keys / TLS material)
+data/
+*.b64
 
 # CMake generated files
 CMakeFiles/

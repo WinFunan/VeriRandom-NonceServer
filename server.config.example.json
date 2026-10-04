@@ -1,0 +1,16 @@
+{
+  "host": "0.0.0.0",
+  "port": 8443,
+  "storageDirectory": "data",
+  "serverKeyFile": "data/server-key.b64",
+  "defaultPulseSource": "drand-quicknet",
+  "defaultPageSize": 50,
+  "maxPageSize": 200,
+  "tls": {
+    "enabled": true,
+    "certificateStoreLocation": "LocalMachine",
+    "certificateStoreName": "MY",
+    "certificateThumbprint": "",
+    "certificateSubject": "CN=nonce.example.com"
+  }
+}
