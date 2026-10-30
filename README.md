@@ -72,6 +72,16 @@ TLS 默认开启，证书从 Windows 证书存储获取（由外部自动续期�
 
 本地开发可在配置中设 `tls.enabled=false`（会打印明文警告，**不得用于生产**）。
 
+> 配置是 JSON：布尔值必须使用小写 `true` / `false`。写成 `FALSE` 属于非法 JSON，
+> 服务会在启动时明确报错并退出。
+
+## 故障排查
+
+- 若进程异常退出，会在 `%TEMP%\VeriRandom-NonceServer-crash.dmp` 写入 minidump，
+  同时向 stderr 输出异常码与地址。定位问题时请一并提供该 dump 与事件查看器的
+  faulting module / exception code。
+- JSON 请求体最大 1 MiB、头部最大 64 KiB、嵌套深度最大 128 层；超限返回 `400`。
+
 ## 端点
 
 | 方法 | 路径 | 说明 |

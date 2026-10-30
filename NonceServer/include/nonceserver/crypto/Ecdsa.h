@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -42,6 +43,8 @@ public:
 
 private:
     void* handle_ = nullptr;  // BCRYPT_KEY_HANDLE
+    // CNG 密钥句柄不保证并发调用安全；签名按密钥串行化（服务端单密钥场景足够）。
+    mutable std::mutex signMutex_;
 
     friend Status VerifyEcdsaP256Hash(const std::vector<uint8_t>&, const uint8_t*, std::size_t,
                                       const std::vector<uint8_t>&);

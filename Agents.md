@@ -108,6 +108,13 @@ cmake --build --preset x64-debug
 
 TLS 凭据在**每次连接**时检查证书指纹，因此外部自动续期替换证书后会自动重建 Schannel 凭据。
 
+> 配置是 **JSON**：布尔值必须小写 `true` / `false`。写成 `FALSE` 会被判为非法 JSON，
+> 服务启动时即报错退出（日志会给出具体位置/原因），不会进入运行态。
+>
+> 进程级崩溃会写入 minidump：`%TEMP%\VeriRandom-NonceServer-crash.dmp`，同时向 stderr 输出
+> 异常码与地址。定位 Windows 10 等环境特有的崩溃时，请一并提供该 dump 与事件查看器中的
+> faulting module / exception code。
+
 ---
 
 ## 6. 端点一览（规范 §4）

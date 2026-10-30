@@ -23,6 +23,7 @@ set(NONCESERVER_CORE_SOURCES
   "src/clock/Clock.cpp"
   "src/log/Logger.cpp"
   "src/config/ServerConfig.cpp"
+  "src/diagnostics/CrashHandler.cpp"
   "src/pulse/DrandQuicknetSource.cpp"
   "src/pulse/NistBeaconSource.cpp"
   "src/pulse/PulseSourceRegistry.cpp"
@@ -41,8 +42,8 @@ set_target_properties(nonceserver_core PROPERTIES
   CXX_STANDARD_REQUIRED ON
   CXX_EXTENSIONS OFF)
 
-# Windows 系统库：CNG + Schannel + 证书存储 + Winsock。
-target_link_libraries(nonceserver_core PUBLIC bcrypt crypt32 secur32 ws2_32)
+# Windows 系统库：CNG + Schannel + 证书存储 + Winsock + 崩溃转储。
+target_link_libraries(nonceserver_core PUBLIC bcrypt crypt32 secur32 ws2_32 dbghelp)
 
 add_executable(NonceServer "src/main.cpp")
 target_link_libraries(NonceServer PRIVATE nonceserver_core)

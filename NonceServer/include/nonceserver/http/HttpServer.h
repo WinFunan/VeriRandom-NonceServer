@@ -36,10 +36,15 @@ private:
     const Router& router_;
     std::shared_ptr<ITlsContext> tlsContext_;
     std::atomic<bool> running_{false};
-    std::uintptr_t listenSocket_ = static_cast<std::uintptr_t>(~0ull);
+    std::atomic<std::uintptr_t> listenSocket_{static_cast<std::uintptr_t>(~0ull)};
+
+    struct Worker {
+        std::thread thread;
+        std::shared_ptr<std::atomic<bool>> done;
+    };
 
     std::mutex workersMutex_;
-    std::vector<std::thread> workers_;
+    std::vector<Worker> workers_;
 };
 
 }  // namespace nonceserver

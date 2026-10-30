@@ -257,8 +257,8 @@ void HttpServer::AcceptLoop() {
         sockaddr_in clientAddress{};
         int addressLength = sizeof(clientAddress);
         const SOCKET client =
-            accept(static_cast<SOCKET>(listenSocket_), reinterpret_cast<sockaddr*>(&clientAddress),
-                   &addressLength);
+            accept(static_cast<SOCKET>(listenSocket_.load()),
+                   reinterpret_cast<sockaddr*>(&clientAddress), &addressLength);
         if (client == INVALID_SOCKET) {
             if (running_) {
                 LogWarn("accept failed");
@@ -269,9 +269,37 @@ void HttpServer::AcceptLoop() {
         DWORD timeoutMs = 5000;
         setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&timeoutMs),
                    sizeof(timeoutMs));
-        std::lock_guard<std::mutex> lock(workersMutex_);
-        workers_.emplace_back(
-            [this, client]() { HandleConnection(static_cast<std::uintptr_t>(client)); });
+
+        try {
+            std::lock_guard<std::mutex> lock(workersMutex_);
+
+            // 回收已完成的工作线程，避免长运行/高连接量时线程对象无限累积。
+            for (auto it = workers_.begin(); it != workers_.end();) {
+                if (it->done->load(std::memory_order_acquire)) {
+                    if (it->thread.joinable()) it->thread.join();
+                    it = workers_.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+
+            auto done = std::make_shared<std::atomic<bool>>(false);
+            workers_.push_back(Worker{
+                std::thread([this, client, done]() {
+                    try {
+                        HandleConnection(static_cast<std::uintptr_t>(client));
+                    } catch (const std::exception& error) {
+                        LogError(std::string("connection handler exception: ") + error.what());
+                    } catch (...) {
+                        LogError("connection handler failed with unknown exception");
+                    }
+                    done->store(true, std::memory_order_release);
+                }),
+                std::move(done)});
+        } catch (const std::exception& error) {
+            LogError(std::string("failed to start connection handler: ") + error.what());
+            closesocket(client);
+        }
     }
 }
 
@@ -312,7 +340,7 @@ Status HttpServer::Start() {
         return Status::Error(ErrorCode::Unavailable, "listen failed");
     }
 
-    listenSocket_ = static_cast<std::uintptr_t>(listener);
+    listenSocket_.store(static_cast<std::uintptr_t>(listener));
     running_ = true;
     LogInfo(std::string("listening on ") + (config_.tls.enabled ? "https://" : "http://") +
             config_.host + ":" + std::to_string(config_.port));
@@ -325,13 +353,17 @@ Status HttpServer::Start() {
     {
         std::lock_guard<std::mutex> lock(workersMutex_);
         for (auto& worker : workers_) {
-            if (worker.joinable()) worker.join();
+            if (worker.thread.joinable()) worker.thread.join();
         }
         workers_.clear();
     }
 
-    closesocket(listener);
-    listenSocket_ = static_cast<std::uintptr_t>(~0ull);
+    // Stop() 可能已经关闭监听 socket；用 exchange 保证只关闭一次。
+    const std::uintptr_t listenerHandle =
+        listenSocket_.exchange(static_cast<std::uintptr_t>(~0ull));
+    if (listenerHandle != static_cast<std::uintptr_t>(~0ull)) {
+        closesocket(static_cast<SOCKET>(listenerHandle));
+    }
     WSACleanup();
     LogInfo("http server stopped");
     return Status::Ok();
@@ -339,7 +371,7 @@ Status HttpServer::Start() {
 
 void HttpServer::Stop() {
     if (!running_.exchange(false)) return;
-    const std::uintptr_t socket = listenSocket_;
+    const std::uintptr_t socket = listenSocket_.exchange(static_cast<std::uintptr_t>(~0ull));
     if (socket != static_cast<std::uintptr_t>(~0ull)) {
         closesocket(static_cast<SOCKET>(socket));
     }

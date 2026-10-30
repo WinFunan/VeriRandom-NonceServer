@@ -5,6 +5,7 @@
 #include "nonceserver/clock/Clock.h"
 #include "nonceserver/config/ServerConfig.h"
 #include "nonceserver/crypto/Ecdsa.h"
+#include "nonceserver/diagnostics/CrashHandler.h"
 #include "nonceserver/http/ApiController.h"
 #include "nonceserver/http/HttpServer.h"
 #include "nonceserver/http/Router.h"
@@ -52,8 +53,11 @@ int Fail(const std::string& message) {
 int main(int argc, char** argv) {
     using namespace nonceserver;
 
+    const std::string crashDumpPath = InstallCrashHandler();
+
     LogInfo(std::string(kServerName) + " " + kServerVersion + " (protocol v" +
             std::to_string(kSupportedProtocolVersion) + ")");
+    LogInfo("crash dump path: " + crashDumpPath);
 
     const std::string configPath = argc > 1 ? argv[1] : "server.config.json";
     const auto configResult = ServerConfig::LoadFromFile(configPath);

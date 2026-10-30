@@ -191,13 +191,15 @@ std::string FormatDouble(double value) {
     return os.str();
 }
 
+constexpr int kMaxJsonNestingDepth = 128;
+
 class Parser {
 public:
     explicit Parser(std::string_view text) : text_(text) {}
 
     bool parse(Json& out) {
         skipWhitespace();
-        if (!parseValue(out)) return false;
+        if (!parseValue(out, 0)) return false;
         skipWhitespace();
         if (position_ != text_.size()) {
             error_ = "trailing characters after JSON value";
@@ -225,11 +227,14 @@ private:
         }
     }
 
-    bool parseValue(Json& out) {
+    bool parseValue(Json& out, int depth) {
+        if (depth > kMaxJsonNestingDepth) {
+            return fail("maximum JSON nesting depth exceeded");
+        }
         if (position_ >= text_.size()) return fail("unexpected end of input");
         switch (text_[position_]) {
-            case '{': return parseObject(out);
-            case '[': return parseArray(out);
+            case '{': return parseObject(out, depth);
+            case '[': return parseArray(out, depth);
             case '"': {
                 std::string value;
                 if (!parseString(value)) return false;
@@ -261,7 +266,7 @@ private:
         }
     }
 
-    bool parseObject(Json& out) {
+    bool parseObject(Json& out, int depth) {
         ++position_;  // '{'
         Json::Object object;
         skipWhitespace();
@@ -280,7 +285,7 @@ private:
             ++position_;
             skipWhitespace();
             Json value;
-            if (!parseValue(value)) return false;
+            if (!parseValue(value, depth + 1)) return false;
             object[std::move(key)] = std::move(value);
             skipWhitespace();
             if (position_ >= text_.size()) return fail("unterminated object");
@@ -297,7 +302,7 @@ private:
         }
     }
 
-    bool parseArray(Json& out) {
+    bool parseArray(Json& out, int depth) {
         ++position_;  // '['
         Json::Array array;
         skipWhitespace();
@@ -309,7 +314,7 @@ private:
         while (true) {
             skipWhitespace();
             Json value;
-            if (!parseValue(value)) return false;
+            if (!parseValue(value, depth + 1)) return false;
             array.push_back(std::move(value));
             skipWhitespace();
             if (position_ >= text_.size()) return fail("unterminated array");

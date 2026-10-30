@@ -204,6 +204,7 @@ std::string EcdsaP256Key::KeyId() const {
 
 Result<std::vector<uint8_t>> EcdsaP256Key::SignHashDer(const uint8_t* hash,
                                                        std::size_t hashLength) const {
+    std::lock_guard<std::mutex> lock(signMutex_);
     auto handle = static_cast<BCRYPT_KEY_HANDLE>(handle_);
     if (!handle) return Status::Error(ErrorCode::CryptoFailure, "signing key is not initialized");
 
